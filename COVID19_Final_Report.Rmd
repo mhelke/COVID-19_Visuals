@@ -1,0 +1,778 @@
+---
+title: "COVID-19 Analysis"
+author: "Matthew Helke"
+date: "5/14/2020"
+output: html_document
+---
+The goal of this project is to examine trends of COVID-19 across the world, and the US. 
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+
+```
+
+
+
+```{r dataset_1, include=FALSE, echo = FALSE, warning=FALSE, message=FALSE}
+global_confirmed_url <- "https://raw.githubusercontent.com/mhelke/COVID-19_Visuals/master/time_series_covid19_confirmed_global.csv"
+us_confirmed_url <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv"
+
+
+global_confirmed <- read_csv(global_confirmed_url)
+
+
+```
+
+
+### Analysis of Global Cases
+
+(Data from John Hopkins Univeristy Cener for System Science and Engineering)
+
+Here is a chart of report cases in the US per day
+```{r, warning=FALSE, message=FALSE}
+global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  filter(country_region == "US") %>%
+  arrange(province, Date) %>%
+  group_by(province) %>%
+  mutate(cases_per_day = c(0, diff(cumulative_cases))) %>%
+  ungroup() %>% select(-c(country_region, Lat, Long, cumulative_cases)) %>%
+  ggplot(aes(x = Date, y = cases_per_day)) +
+  geom_col() +
+  geom_line() +
+  xlab("Date") +
+  ylab("Cases Per Day") +
+  ggtitle("Cases Per Day throughout 2020 in the US")
+```
+
+
+The graph shows that reported cases have been averaging between 20,000 and 35,000 perday since late March.
+This graph also shows that the spread of the Novel Coronavirus is steady and fast in the US
+
+We can examine what China's graph looks like too.
+
+```{r global confirmed data, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  filter(country_region == "China") %>%
+  arrange(province, Date) %>%
+  group_by(province) %>%
+  mutate(cases_per_day = c(0, diff(cumulative_cases))) %>%
+  ungroup() %>% select(-c(country_region, Lat, Long, cumulative_cases)) %>%
+  ggplot(aes(x = Date, y = cases_per_day)) +
+  geom_col() +
+  geom_line() +
+  xlab("Date") +
+  ylab("Cases Per Day") +
+  ggtitle("Cases Per Day throughout 2020 in China")
+```
+
+It appears that China has been controlling the spread well since early March, but there have been concerns over whether their reporting is trustworthy and accurate. 
+
+
+Italy was a country that peaked in terms of deaths from COVID-19, but looking at cases you can see the spread is not as large  as a country like the US. 
+```{r, warning = FALSE, message=FALSE}
+global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  filter(country_region == "Italy") %>%
+  arrange(province, Date) %>%
+  group_by(province) %>%
+  mutate(cases_per_day = c(0, diff(cumulative_cases))) %>%
+  ungroup() %>% select(-c(country_region, Lat, Long, cumulative_cases)) %>%
+  ggplot(aes(x = Date, y = cases_per_day)) +
+  geom_col() +
+  geom_line() +
+  xlab("Date") +
+  ylab("Cases Per Day") +
+  ggtitle("Cases Per Day throughout 2020 in Italy")
+```
+
+The US has the most cases per day out of many other countries. This trend seems to be constant for the past couple months.
+
+(Data from John Hopkins Univeristy Cener for System Science and Engineering, WHO, and CDC)
+
+```{r world data, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+confirmed_cases_worldwide <- read_csv("https://raw.githubusercontent.com/mhelke/COVID-19_Visuals/master/confirmed_cases_worldwide.csv")
+confirmed_cases_china_vs_world <- read_csv("https://raw.githubusercontent.com/mhelke/COVID-19_Visuals/master/confirmed_cases_china_vs_world.csv")
+confirmed_cases_by_country <- read_csv("https://raw.githubusercontent.com/mhelke/COVID-19_Visuals/master/confirmed_cases_by_country.csv")
+confirmed_cases_top7_outside_china <- read_csv("https://raw.githubusercontent.com/mhelke/COVID-19_Visuals/master/confirmed_cases_top7_outside_china.csv")
+
+```
+
+### Trends of COVID-19
+
+COVID-19 is spreading rapidly. This graph shows the cumulativereported cases gloablly. This data shows the earlier stages of COVID-19, through mid March
+```{r, warning=FALSE, message=FALSE}
+confirmed_cases_worldwide %>%
+ggplot(aes(x = date, y = cum_cases)) +
+  geom_line() +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  ggtitle("COVID-19 Confirmed Worldwide Cases")
+```
+
+How does the world look when compared to china where COVID-19 originated from?
+```{r, warning=FALSE, message=FALSE}
+confirmed_cases_china_vs_world %>% 
+  rename(Region = is_china) %>%
+  ggplot() +
+  geom_line(aes(x = date, y = cum_cases, group = Region, color = Region)) +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  ggtitle("COVID-19 Cumulative Cases Worldwide vs China")
+```
+
+Looking at the early trends of the virus we can see it took off outside of China by early March. 
+
+
+Here is a look at the timeline of how things went
+```{r, warning=FALSE, message=FALSE}
+WHO_reports <- tribble(
+  ~ date, ~ event,
+  "2020-01-30", "Global health\nemergency declared",
+  "2020-03-11", "Pandemic\ndeclared",
+  "2020-02-13", "China reporting\nchange"
+) %>%
+  mutate(date = as.Date(date))
+
+confirmed_cases_china_vs_world %>% 
+  rename(Region = is_china) %>%
+  ggplot() +
+  geom_line(aes(x = date, y = cum_cases, group = Region, color = Region)) +
+  geom_vline(aes(xintercept = date), data = WHO_reports, linetype = "dashed") +
+  geom_text(aes(x = date, label = event), data = WHO_reports, y = 1e5, lwd = 1.5) +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  ggtitle("COVID-19 Timeline")
+```
+
+The pandemic was declared after cases hit roughly 45,000. At that point China was starting to flatten its curve. 
+
+Here is a closer look at the early trends from China. They started slowing down with new reports in March.
+
+```{r, warning = FALSE, message = FALSE}
+confirmed_cases_china_vs_world %>%
+  filter(is_china == "China") %>%
+  ggplot(aes(date, cum_cases)) +
+  geom_line() +
+  geom_smooth(method = "lm", se = TRUE) +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  ggtitle("COVID-19 Trends in China")
+```
+
+Here is what the trends are looking like outside of China. 
+```{r, warning = FALSE, message = FALSE}
+confirmed_cases_china_vs_world %>%
+  filter(is_china == "Not China") %>%
+  ggplot(aes(date, cum_cases)) +
+  geom_line() +
+  geom_smooth(method = "lm", se = TRUE) +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  ggtitle("COVID-19 Trends Worldwide") + 
+  scale_y_log10()
+```
+
+The projections only show it getting worse. This graph confirms that new cases are still on the rise and the US is far above other countries when it comes to total reported cases. 
+
+```{r}
+global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  arrange(Date) %>%
+  filter(country_region == "US" | 
+         country_region == "China" |
+         country_region == "United Kingdom" |
+         country_region == "Italy" |
+         country_region == "France" |
+         country_region == "South Korea" |
+         country_region == "Germany" |
+         country_region == "Iran" |
+         country_region == "Spain") %>%
+  group_by(country_region, Date) %>%
+  summarise(cum_cases = sum(cumulative_cases))%>%
+  ungroup %>%
+  ggplot(aes(Date, cum_cases, color = country_region , group = country_region)) +
+  geom_line() +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date")
+
+```
+
+
+
+Here are the top 7 countries with the most cases.
+
+```{r, warning = FALSE, message = FALSE}
+top_countries_by_total_cases <- global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  arrange(Date) %>%
+  group_by(country_region) %>%
+  summarize(total_cases = max(cumulative_cases)) %>%
+  top_n(7, total_cases) %>%
+  arrange(desc(total_cases))
+
+top_countries_by_total_cases
+```
+
+
+This is a popular graph the media is showing using a logarithmic scale. It appears the curve is flattening, but in reality this graph shows that the virus is spreading exponentially which means it is actually spreading faster than this graph makes it look. Because it is a logarithmic scale, the "flattening" of the curve does not mean things are getting better. Cases are still rising at a fast pace. The last graph shown, is actually this same graph WITHOUT the scale! Notice the difference? The US in particular in the graph below looks to have a flattening curve, but if you look at the previous graph, the US is still rising sharply. 
+
+```{r, warning = FALSE, message = FALSE}
+
+global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  arrange(Date) %>%
+  filter(country_region == "US" | 
+         country_region == "China" |
+         country_region == "United Kingdom" |
+         country_region == "Italy" |
+         country_region == "France" |
+         country_region == "South Korea" |
+         country_region == "Germany" |
+         country_region == "Iran" |
+         country_region == "Spain") %>%
+  group_by(country_region, Date) %>%
+  summarise(cum_cases = sum(cumulative_cases))%>%
+  ungroup %>%
+  ggplot(aes(Date, cum_cases, color = country_region, group = country_region)) +
+  geom_line() +
+  theme_minimal() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  scale_y_log10()
+
+```
+
+Here is the same graph, with the time line included. The dashed line on the right shows when WHO formally declared the coronavirus outbreak to be a pandemic.
+
+```{r, message=FALSE, warning=FALSE}
+
+global_confirmed %>%
+  rename(province = "Province/State", country_region = "Country/Region") %>%
+  pivot_longer(-c(province, country_region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_cases") %>%
+  mutate(Date = mdy(Date)) %>%
+  arrange(Date) %>%
+  filter(country_region == "US" | 
+         country_region == "China" |
+         country_region == "United Kingdom" |
+         country_region == "Italy" |
+         country_region == "France" |
+         country_region == "South Korea" |
+         country_region == "Germany" |
+         country_region == "Iran" |
+         country_region == "Spain") %>%
+  group_by(country_region, Date) %>%
+  summarise(cum_cases = sum(cumulative_cases))%>%
+  ungroup %>%
+  ggplot(aes(Date, cum_cases, color = country_region, group = country_region)) +
+  geom_line() +
+  theme_minimal() +
+  scale_y_log10() +
+  ylab("Cumulative confirmed cases") +
+  xlab("Date") +
+  geom_vline(aes(xintercept = date), data = WHO_reports, linetype = "dashed")
+
+
+
+
+```
+
+### World Maps of COVID-19 Cases
+
+```{r, include = FALSE, message=FALSE, warning=FALSE}
+world_map <- map_data("world")
+global_confirmed_ts <- read_csv(global_confirmed_url)
+us_confirmed <- read_csv(us_confirmed_url)
+
+
+global_confirmed_ts <- global_confirmed_ts %>%
+  rename(province = "Province/State", region = "Country/Region") %>%
+  arrange(region)
+```
+
+
+This map gives you an idea of where the coronavirus is. This is a rough visual before looking at more descriptive maps. It gives you a good idea of the data before digging in deeper. 
+```{r, message=FALSE, warning=FALSE}
+ggplot() +
+  geom_polygon(data = world_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = global_confirmed_ts, aes(Long, Lat, size = `5/12/20`),
+             stroke=F, alpha = 0.7, color = "blue") + 
+  theme_void() +
+  guides(size = guide_legend()) +
+  ggtitle("Total Confirmed COVID-19 per Country") +
+  labs(size = "Confirmed Cases")
+```
+
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+global_confirmed_ts_over_100 <- global_confirmed_ts %>%
+  select(province, region, Lat, Long, `5/12/20`) %>%
+  filter(`5/12/20` >= 100)
+
+```
+
+Looking at the data, there are 72 regions with under 100 cases. These places have been minimally affected so I will not be including them on the maps as a way of reducing clutter. 
+
+Here are the countries with over 100 cases. The points are given colors and sizes based on how many cases have been reported in the country. 
+
+```{r, warning=FALSE, message=FALSE}
+
+breaks = c(1000,10000,50000,100000,1000000)
+
+ggplot() +
+  geom_polygon(data = world_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = global_confirmed_ts_over_100, aes(Long, Lat, size = `5/12/20`, color = `5/12/20`),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Confirmed COVID-19 per Country") +
+  labs(color = "Confirmed Cases") +
+  scale_size_continuous(name = "Confirmed Cases", trans = "log", range = c(1,5), breaks = breaks,
+                        labels = c("100 - 1,000", "1,000 - 10,000", 
+                                   "10,000 - 50,000", "100,000 - 1,000,000", 
+                                   "1,000,000+")) +
+  scale_color_viridis_c(name = "Confirmed Cases", option = "inferno", trans = "log",
+                        breaks = breaks, labels = 
+                          c("100 - 1,000", "1,000 - 10,000", 
+                            "10,000 - 50,000", "100,000 - 1,000,000", 
+                            "1,000,000+"))
+```
+
+In order to reduce even more clutter, this next map shows countries that have over 1,000 cases. Compared to many places in the world having 1,000 cases seems like nothing. By doing this you can see many African, Asian, and Caribbean countries have been removed. These are more remote places in the world with far less global traffic compared to places like the US, China, etc. 
+
+```{r, warning=FALSE, message=FALSE}
+global_confirmed_ts_over_1000 <- global_confirmed_ts %>%
+  filter(`5/12/20` >= 1000)
+
+breaks = c(10000,50000,100000,1000000)
+
+ggplot() +
+  geom_polygon(data = world_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = global_confirmed_ts_over_1000, aes(Long, Lat, size = `5/12/20`, color = `5/12/20`),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Confirmed COVID-19 per Country") +
+  labs(color = "Confirmed Cases") +
+  scale_size_continuous(name = "Confirmed Cases", trans = "log", range = c(1,6), breaks = breaks,
+                        labels = c("1,000 - 10,000", 
+                                   "10,000 - 50,000", "100,000 - 1,000,000", 
+                                   "1,000,000+")) +
+  scale_color_viridis_c(name = "Confirmed Cases", option = "inferno", trans = "log",
+                        breaks = breaks, labels = 
+                          c("1,000 - 10,000", 
+                            "10,000 - 50,000", "100,000 - 1,000,000", 
+                            "1,000,000+"))
+```
+
+### US Maps of COVID-19 Cases
+
+I am deciding to do only the mainland US in order to keep it simple. 
+
+Here is the case data in the US per county (Minimum 100 cases):
+
+```{r, warning=FALSE, message=FALSE}
+us_confirmed_main <- us_confirmed %>%
+  filter(iso2  == "US")  %>%
+  filter(Province_State != "Alaska") %>%
+  filter(Province_State != "Hawaii")
+
+US_map <- map_data("usa")
+
+breaks = c(1000,10000,50000,100000,1000000)
+
+ggplot() +
+  geom_polygon(data = US_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = us_confirmed_main, aes(Long_, Lat, size = `4/30/20`, color = `4/30/20`),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Confirmed COVID-19 in the US") +
+  labs(color = "Confirmed Cases") +
+  scale_size_continuous(name = "Confirmed Cases", trans = "log", range = c(1,5), breaks = breaks,
+                        labels = c("<1,000", "1,000 - 10,000", 
+                                   "10,000 - 50,000", "100,000 - 1,000,000", 
+                                   "1,000,000+")) +
+  scale_color_viridis_c(name = "Confirmed Cases", option = "inferno", trans = "log",
+                        breaks = breaks, labels = 
+                          c("<1,000", "1,000 - 10,000", 
+                            "10,000 - 50,000", "100,000 - 1,000,000", 
+                            "1,000,000+")) +
+  ylim(20, 50) +
+  xlim(-130, -60)
+
+```
+This is a very messy map since there are so many counties with over 100 cases. You can tell where the vast majority of the population is though just by looking at this map. Every major populated area of the US is reporting over 100 cases. 
+For a better look, we can view the total cases by state.
+
+Here is a look at the number of total cases in each mainland state. 
+
+```{r, warning=FALSE, message=FALSE}
+us_confirmed_main %>%
+  select(Province_State, Lat, Long_, `5/12/20`) %>%
+  group_by(Province_State) %>%
+  summarise(total_cases = sum(`5/12/20`)) %>%
+  ungroup() %>%
+  filter(Province_State != "Diamond Princess") %>%
+  filter(Province_State != "Grand Princess") %>%
+  arrange(desc(total_cases))
+```
+
+From this data, we can create a map. 
+
+```{r, warning=FALSE, message=FALSE}
+us_confirmed_main_by_state <- us_confirmed_main %>%
+  select(Province_State, Lat, Long_, `5/12/20`) %>%
+  group_by(Province_State) %>%
+  summarise(cases = sum(`5/12/20`), lat = median(Lat), long = median(Long_))
+
+US_map <- map_data("usa")
+
+breaks = c(500, 1000, 5000, 10000, 25000, 50000, 100000)
+
+
+ggplot() +
+  geom_polygon(data = US_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = us_confirmed_main_by_state, aes(long, lat, size = cases   , color = cases   ),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Confirmed COVID-19 in the US") +
+  labs(color = "Confirmed Cases") +
+  scale_size_continuous(name = "Confirmed Cases", trans = "log", range = c(1,5), breaks = breaks,
+                        labels = c("500 - 1,000", 
+                                   "1,000 - 5,000", "5,000 - 10,000", 
+                                   "10,000 - 25,000", "25,000 - 50,000", "50,000 - 100,000", "100,000+"))+
+  scale_color_viridis_c(name = "Confirmed Cases", option = "inferno", trans = "log",
+                        breaks = breaks, labels = 
+                          c("500 - 1,000", 
+                            "1,000 - 5,000", "5,000 - 10,000", 
+                            "10,000 - 25,000", "25,000 - 50,000", "50,000 - 100,000", "100,000+")) +
+  ylim(20, 50) +
+  xlim(-130, -60)
+
+```
+
+This map also shows that the states affected the most are located on the East coast. The map also shows that the virus is spreading from the East Coast toward the middle of the country to places like the Mid West, and the South. 
+
+### Most affected countries
+
+(Data from https://ourworldindata.org/)
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+covid_data <- read_csv("https://raw.githubusercontent.com/mhelke/COVID-19_Visuals/master/owid-covid-data.csv")
+
+
+```
+
+Worst Countries based on total cases
+```{r, warning=FALSE, message=FALSE}
+covid_data %>%
+  select(location, total_cases, total_deaths) %>%
+  filter(location != "World") %>%
+  group_by(location) %>%
+  summarise(cases = sum(total_cases)) %>%
+  top_n(10, cases) %>%
+  ggplot(aes(x = location, y = cases, fill = location)) +
+  geom_col()
+```
+
+Worst Countries based on Deaths
+
+```{r, warning=FALSE, message=FALSE}
+covid_data %>%
+  select(location, total_cases, total_deaths) %>%
+  group_by(location) %>%
+  summarise(deaths = sum(total_deaths)) %>%
+  filter(location != "World") %>%
+  top_n(10, deaths) %>%
+  ggplot(aes(x = location, y = deaths, fill = location)) +
+  geom_col()
+```
+
+Compare the top 10 countries with the most cases and calculate their death rates. 
+```{r, warning=FALSE, message=FALSE}
+covid_data %>%
+  select(location, total_cases, total_deaths) %>%
+  group_by(location) %>%
+  summarise(deaths = sum(total_deaths), cases = sum(total_cases)) %>%
+  filter(location != "World") %>%
+  top_n(10, cases) %>%
+  ungroup() %>%
+  ggplot() +
+  geom_col(aes(x = location, y = cases)) +
+  geom_col(aes(x = location, y = deaths, fill = "Deaths")) +
+  geom_label(aes(x = location, y = cases, label = (deaths/cases)*100), lwd = 2)
+```
+
+Here are the top 10 countries based on the death rate previously calculated. Some countries on this list have not shown up in any other graph yet. There are some 3rd world countries on this list that probably havea lack of heath care which is probably causing their death rates to spike. The UK and France are shocking to see on this list! I am surprised the US and Italy are not on there; I am sure that it is due to the higher amounts of cases in those two countries which makes the death rate fall. 
+
+```{r, warning=FALSE, message=FALSE}
+covid_data %>%
+  select(location, total_cases, total_deaths) %>%
+  group_by(location) %>%
+  summarise(deaths = sum(total_deaths), cases = sum(total_cases), 
+            rate = (deaths/cases)*100) %>%
+  filter(location != "World") %>%
+  top_n(10, rate) %>%
+  ungroup() %>%
+  arrange(desc(rate))
+```
+
+
+Here is a graph of that data:
+```{r, warning=FALSE, message=FALSE}
+covid_data %>%
+  select(location, total_cases, total_deaths) %>%
+  group_by(location) %>%
+  summarise(deaths = sum(total_deaths), cases = sum(total_cases), 
+            rate = (deaths/cases)*100) %>%
+  filter(location != "World") %>%
+  top_n(10, rate) %>%
+  ungroup() %>%
+  ggplot(aes(x = location, y = rate, fill = location)) +
+  geom_col()
+```
+
+### Global deaths caused by COVID-19
+
+((Data from John Hopkins Univeristy Cener for System Science and Engineering))
+```{r, warning=FALSE, message=FALSE}
+global_deaths <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
+
+global_deaths <- global_deaths %>%
+  rename(province = "Province/State", region = "Country/Region") %>%
+  arrange(region)
+
+world_map <- map_data("world")
+
+
+ggplot() +
+  geom_polygon(data = world_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = global_deaths, aes(Long, Lat, size = `5/12/20`),
+             stroke=F, alpha = 0.7, color = "blue") + 
+  theme_void() +
+  guides(size = guide_legend()) +
+  ggtitle("Total Deaths from COVID-19 per Country") +
+  labs(size = "Confirmed Deaths")
+```
+
+That was a quick look at the deaths around the world. A lot of places stand out right away. Here is an even mroe in depth graph. This graph shows countries with over 100 deaths
+
+```{r, warning=FALSE, message=FALSE}
+global_deaths_over_100 <- global_deaths %>%
+  filter(`5/12/20` >= 100)
+
+breaks = c(100,1000,5000,10000,50000)
+
+ggplot() +
+  geom_polygon(data = world_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = global_deaths_over_100, aes(Long, Lat, size = `5/12/20`, color = `5/12/20`),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Deaths from COVID-19 per Country") +
+  labs(color = "Confirmed Deaths") +
+  scale_size_continuous(name = "Confirmed Deaths", trans = "log", range = c(1,5), breaks = breaks,
+                        labels = c("<100", "100 - 1,000", 
+                                   "1,000 - 5,000", "5,000 - 10,000", 
+                                   "10,000+")) +
+  scale_color_viridis_c(name = "Confirmed Deaths", option = "inferno", trans = "log",
+                        breaks = breaks, labels = c("<100", "100 - 1,000", 
+                                    "1,000 - 5,000", "5,000 - 10,000", 
+                                    "10,000+")) 
+```
+
+You can see the US and Western Europe have very high death tolls, most likely due to their population which gives the virus many opporunities to spread quickly.
+
+These are the top 10 countries when it comes to deaths:
+
+```{r, warning=FALSE, message=FALSE}
+global_deaths_top_10 <- global_deaths %>%
+  select(region, Lat, Long, `5/12/20`) %>%
+  arrange(desc(`5/12/20`)) %>%
+  slice(1:10) %>%
+  rename(Total_Deaths = "5/12/20")
+global_deaths_top_10
+```
+
+Here are the top 10 countries with the highest death toll:
+```{r, warning=FALSE, message=FALSE}
+global_deaths_top_10 <- global_deaths %>%
+  select(region, Lat, Long, `5/12/20`) %>%
+  arrange(desc(`5/12/20`)) %>%
+  slice(1:10)
+ggplot() +
+  geom_polygon(data = world_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = global_deaths_top_10, aes(Long, Lat, size = `5/12/20`),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Deaths from COVID-19 per Country") +
+  labs(color = "Confirmed Deaths")
+```
+
+```{r, warning=FALSE, message=FALSE}
+global_deaths_top_10 %>%
+ggplot(aes(x = region, y = `5/12/20`)) +
+  geom_col()
+```
+
+Here are the trends. You can see that deaths are on the rise still
+
+```{r, warning=FALSE, message=FALSE}
+global_deaths %>%
+  pivot_longer(-c(province, region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_deaths") %>%
+  mutate(Date = mdy(Date)) %>%
+  arrange(Date) %>%
+  filter(region == "US" | 
+         region == "China" |
+         region == "United Kingdom" |
+         region == "Italy" |
+         region == "France" |
+         region == "South Korea" |
+         region == "Germany" |
+         region == "Iran" |
+         region == "Spain") %>%
+  group_by(region, Date) %>%
+  summarise(cum_deaths = sum(cumulative_deaths)) %>%
+  ungroup() %>%
+  ggplot(aes(Date, cum_deaths, color = region, group = region))+
+  geom_line() +
+  theme_minimal() +
+  ylab("Cumulative Confirmed Deaths") +
+  xlab("Date") +
+  scale_y_log10()
+```
+
+Here is that same graph without the logarithmic transformation just to show that the curve is not necessarily flattening yet, especially in the US. Other countries have experienced some slight flattening 
+
+```{r}
+global_deaths %>%
+  pivot_longer(-c(province, region, Lat, Long), names_to = "Date",
+               values_to = "cumulative_deaths") %>%
+  mutate(Date = mdy(Date)) %>%
+  arrange(Date) %>%
+  filter(region == "US" | 
+         region == "China" |
+         region == "United Kingdom" |
+         region == "Italy" |
+         region == "France" |
+         region == "South Korea" |
+         region == "Germany" |
+         region == "Iran" |
+         region == "Spain") %>%
+  group_by(region, Date) %>%
+  summarise(cum_deaths = sum(cumulative_deaths)) %>%
+  ungroup() %>%
+  ggplot(aes(Date, cum_deaths, color = region, group = region))+
+  geom_line() +
+  theme_minimal() +
+  ylab("Cumulative Confirmed Deaths") +
+  xlab("Date")
+```
+
+### Deaths in the US caused by COVID-19
+
+(Data from John Hopkins Univeristy Cener for System Science and Engineering)
+
+```{r, warning=FALSE, message=FALSE}
+us_deaths <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+
+# Only main land US like the graph to make it easier
+
+us_deaths_main <- us_deaths %>%
+  filter(iso2 == "US") %>%
+  filter(Province_State != "Alaska", 
+         Province_State != "Hawaii", 
+         Province_State != "Diamond Princess",
+         Province_State != "District of Columbia",
+         Province_State != "Grand Princess") %>%
+  select(Province_State, Lat, Long_, `5/12/20`) %>%
+  mutate(mean = sum(`5/12/20`)) %>%
+  group_by(Province_State) %>%
+  summarise(deaths = mean(`5/12/20`), lat = median(Lat), long = median(Long_))
+
+breaks = c(500, 1000, 5000, 10000, 25000, 50000, 100000)
+
+ggplot() +
+  geom_polygon(data = US_map, aes(long, lat, group = group), fill="black", alpha = 0.3) +
+  geom_point(data = us_deaths_main, aes(long, lat, size = deaths, color = deaths),
+             stroke=F, alpha = 0.7) + 
+  theme_void() +
+  guides(color = guide_legend()) +
+  ggtitle("Total Deaths by COVID-19 in the US") +
+  labs(color = "Deaths") +
+  scale_size_continuous(name = "Deaths", trans = "log", range = c(1,5), breaks = breaks,
+                        labels = c("500 - 1,000", "1,000-5,000", "5,000-10,000", "10,000 - 25,000",
+                                   "25,000-50,000", "50,000-100,000", "100,000+")) +
+  scale_color_viridis_c(name = "Deaths", option = "inferno", trans = "log",
+                        breaks = breaks, labels = 
+                          c("500 - 1,000", "1,000-5,000", "5,000-10,000", "10,000 - 25,000",
+                            "25,000-50,000", "50,000-100,000", "100,000+")) +
+  ylim(20, 50) +
+  xlim(-130, -60)
+
+```
+
+Here are the states with the highest detah rates:
+```{r, warning=FALSE, message=FALSE}
+
+us_deaths <- us_deaths_main %>%
+  select(-c(lat, long)) %>%
+  inner_join(us_confirmed_main_by_state, by = "Province_State") %>%
+  select(-c(lat, long)) %>%
+  mutate(death_rate = (deaths / cases)*100) %>%
+  arrange(desc(death_rate))
+
+us_deaths
+```
+
+Here is a graph of the worst states. This gives a visual at how  some states are doing worse based on  the death  rate. From this you can see that the death rate is very high in Eastern states with smaller populations. New York is one of the hardest hit states in the country, but their death rate is far smaller becasue they have a large population. For this reason, death rate should not be looked at too closely
+
+```{r, warning=FALSE, message=FALSE}
+
+us_deaths_main %>%
+  select(-c(lat, long)) %>%
+  inner_join(us_confirmed_main_by_state, by = "Province_State") %>%
+  select(-c(lat, long)) %>%
+  mutate(death_rate = (deaths / cases)*100) %>%
+  arrange(desc(death_rate)) %>%
+  ggplot(aes(x = Province_State, y = death_rate)) +
+  geom_col() +
+  geom_label(aes(label = Province_State), lwd = 2)
+
+
+```
+
+In conclusion, the data clearly shows that coronavirus cases are still rapidly rising, especially in the US. Deaths from COVID-19 are also still increasing. It looks like the pandemic will still be continuing for a few more months at least. 
